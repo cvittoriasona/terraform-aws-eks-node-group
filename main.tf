@@ -95,6 +95,17 @@ locals {
     need_remote_access        = local.ng_needs_remote_access
     ec2_ssh_key               = local.remote_access_enabled ? var.ec2_ssh_key : "none"
     source_security_group_ids = local.ng_needs_remote_access ? sort(concat(module.security_group.*.id, var.security_groups)) : []
+
+    # Configure taints
+    taints = length(var.kubernetes_taints) > 0 ? { for k, v in var.kubernetes_taints : k => {
+      value  = length(split(":", v)) > 1 ? element(split(":", v), 0) : null
+      effect = try(element(split(":", v), 1), v)
+    } } : {}
+    taint_lookup_map = {
+      NoSchedule       = "NO_SCHEDULE"
+      NoExecute        = "NO_EXECUTE"
+      PreferNoSchedule = "PREFER_NO_SCHEDULE"
+    }
   }
 }
 
@@ -186,6 +197,15 @@ resource "aws_eks_node_group" "default" {
     }
   }
 
+  dynamic "taint" {
+    for_each = local.ng.taints
+    content {
+      key    = taint.key
+      value  = taint.value.value
+      effect = local.ng.taint_lookup_map[taint.value.effect]
+    }
+  }
+
   # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
   # Otherwise, EKS will not be able to properly delete EC2 Instances and Elastic Network Interfaces.
   depends_on = [
@@ -252,6 +272,14 @@ resource "aws_eks_node_group" "cbd" {
     content {
       ec2_ssh_key               = local.ng.ec2_ssh_key
       source_security_group_ids = local.ng.source_security_group_ids
+    }
+  }
+
+  dynamic "taint" {
+    for_each = local.ng.taints
+    content {
+      key    = taint.key
+      effect = local.ng.taint_lookup_map[taint.value]
     }
   }
 
