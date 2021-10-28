@@ -364,12 +364,6 @@ variable "metadata_http_put_response_hop_limit" {
     The desired HTTP PUT response hop limit (between 1 and 64) for Instance Metadata Service requests.
     The default is `2` to support containerized workloads.
     EOT
-  validation {
-    condition = (
-      var.metadata_http_put_response_hop_limit >= 2
-    )
-    error_message = "IMDS hop limit must be at least 2 to support EKS functionality."
-  }
 }
 
 variable "metadata_http_tokens_required" {
